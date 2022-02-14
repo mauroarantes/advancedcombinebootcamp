@@ -133,6 +133,7 @@ class AdvancedCombineBootcampViewModel: ObservableObject {
 //                return "\(stride.timeInterval)"
 //            })
 //            .throttle(for: 5, scheduler: DispatchQueue.main, latest: true)
+        
             .map({String($0)})
             .sink { completion in
                 switch completion {
