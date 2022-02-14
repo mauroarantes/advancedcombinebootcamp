@@ -124,9 +124,16 @@ class AdvancedCombineBootcampViewModel: ObservableObject {
 //                return existingValue + newValue
 //            })
 //            .reduce(0, +)
-        
+//            .collect(3)
+//            .allSatisfy({$0 < 50})
+//            .debounce(for: 0.5, scheduler: DispatchQueue.main)
+//            .delay(for: 2, scheduler: DispatchQueue.main)
+//            .measureInterval(using: DispatchQueue.main)
+//            .map({ stride in
+//                return "\(stride.timeInterval)"
+//            })
+//            .throttle(for: 5, scheduler: DispatchQueue.main, latest: true)
             .map({String($0)})
-            .collect()
             .sink { completion in
                 switch completion {
                 case .finished:
@@ -136,8 +143,8 @@ class AdvancedCombineBootcampViewModel: ObservableObject {
 //                    print(error.localizedDescription)
                 }
             } receiveValue: { [weak self] returnedValue in
-                self?.data = returnedValue
-//                self?.data.append(returnedValue)
+//                self?.data = returnedValue
+                self?.data.append(returnedValue)
             }
             .store(in: &cancellables)
     }
