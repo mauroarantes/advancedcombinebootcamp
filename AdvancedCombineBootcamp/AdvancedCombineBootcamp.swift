@@ -14,6 +14,8 @@ class AdvancedCombineDataService {
 //    @Published var basicPublisher: String = "first publish"
 //    let currentValuePublisher = CurrentValueSubject<Int, Never>("first publish")
     let passThroughPublisher = PassthroughSubject<Int, Error>()
+    let boolPublisher = PassthroughSubject<Bool, Error>()
+    let intPublisher = PassthroughSubject<Int, Error>()
     
     init() {
         publishFakeData()
@@ -28,6 +30,13 @@ class AdvancedCombineDataService {
 //                self.currentValuePublisher.send(items[x])
                 self.passThroughPublisher.send(items[x])
                 
+                if (x > 4 && x < 8) {
+                    self.boolPublisher.send(true)
+                    self.intPublisher.send(999)
+                } else {
+                    self.boolPublisher.send(false)
+                }
+                
                 if x == items.indices.last {
                     self.passThroughPublisher.send(completion: .finished)
                 }
@@ -39,18 +48,20 @@ class AdvancedCombineDataService {
 class AdvancedCombineBootcampViewModel: ObservableObject {
     
     @Published var data: [String] = []
+    @Published var dataBools: [Bool] = []
     @Published var error: String = ""
     //The data service is usually injected in init
     let dataService = AdvancedCombineDataService()
     
     var cancellables = Set<AnyCancellable>()
+    let multicastPublisher = PassthroughSubject<Int, Error>()
     
     init() {
         addSubscribers()
     }
     
     private func addSubscribers() {
-        dataService.passThroughPublisher
+//        dataService.passThroughPublisher
         
             //Sequence Operations
         /*
@@ -95,6 +106,7 @@ class AdvancedCombineBootcampViewModel: ObservableObject {
 //            .tryMin(by: ) */
         
         //Filter/Reduce Operations
+        /*
 //            .map()
 //            .tryMap({ int in
 //                if int == 5 {
@@ -133,8 +145,43 @@ class AdvancedCombineBootcampViewModel: ObservableObject {
 //                return "\(stride.timeInterval)"
 //            })
 //            .throttle(for: 5, scheduler: DispatchQueue.main, latest: true)
+//            .retry(3)
+//            .timeout(1, scheduler: DispatchQueue.main)
+        */
         
+        //Multiple Pulishers/ Subscribers
+        /*
+//            .combineLatest(dataService.boolPublisher, dataService.intPublisher)
+//            .compactMap({ (int1, bool, int2) in
+//                if bool {
+//                    return String(int1)
+//                }
+//                return nil
+//            })
+//            .compactMap({ $1 ? String($0) : nil })
+//            .removeDuplicates()
+//            .merge(with: dataService.intPublisher)
+//            .zip(dataService.boolPublisher, dataService.intPublisher)
+//            .map({ tuple in
+//                return String(tuple.0) + tuple.1.description + String(tuple.2)
+//            })
+//            .tryMap({ _ in
+//                throw URLError(.badServerResponse)
+//            })
+//            .catch({ error in
+//                return self.dataService.intPublisher
+//            })
+        */
         
+        let sharedPublisher = dataService.passThroughPublisher
+//            .dropFirst(3)
+            .share()
+//            .multicast {
+//                PassthroughSubject<Int, Error>()
+//            }
+            .multicast(subject: multicastPublisher)
+        
+            sharedPublisher
             .map({String($0)})
             .sink { completion in
                 switch completion {
@@ -149,6 +196,28 @@ class AdvancedCombineBootcampViewModel: ObservableObject {
                 self?.data.append(returnedValue)
             }
             .store(in: &cancellables)
+
+            sharedPublisher
+            .map({ $0 > 5 ? true : false})
+            .sink { completion in
+                switch completion {
+                case .finished:
+                    break
+                case .failure(let error):
+                    self.error = "ERROR: \(error)"
+//                    print(error.localizedDescription)
+                }
+            } receiveValue: { [weak self] returnedValue in
+//                self?.data = returnedValue
+                self?.dataBools.append(returnedValue)
+            }
+            .store(in: &cancellables)
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+            sharedPublisher
+                .connect()
+                .store(in: &self.cancellables)
+        }
     }
     
 }
@@ -158,15 +227,28 @@ struct AdvancedCombineBootcamp: View {
     @StateObject private var vm = AdvancedCombineBootcampViewModel()
     var body: some View {
         ScrollView {
-            VStack {
-                ForEach(vm.data, id: \.self){
-                    Text($0)
-                        .font(.largeTitle)
-                        .fontWeight(.black)
+            HStack {
+                VStack {
+                    ForEach(vm.data, id: \.self){
+                        Text($0)
+                            .font(.largeTitle)
+                            .fontWeight(.black)
+                    }
+                    
+                    if !vm.error.isEmpty {
+                        Text(vm.error)
+                    }
                 }
-                
-                if !vm.error.isEmpty {
-                    Text(vm.error)
+                VStack {
+                    ForEach(vm.dataBools, id: \.self){
+                        Text($0.description)
+                            .font(.largeTitle)
+                            .fontWeight(.black)
+                    }
+                    
+                    if !vm.error.isEmpty {
+                        Text(vm.error)
+                    }
                 }
             }
         }
